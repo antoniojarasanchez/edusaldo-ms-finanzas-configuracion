@@ -1,0 +1,296 @@
+@startuml 06_ms_finanzas_configuracion
+title EduSaldo · MS Finanzas y Configuración (8086) · db_finanzas_config\nHU01–HU03, HU54–HU67 (Caja vs. Resultado · Doble Firma · Cierre Contable)
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #1F4E79
+  ArrowColor #1F4E79
+}
+skinparam package {
+  BorderColor #1F4E79
+  BackgroundColor #EEF4FA
+}
+hide empty members
+
+package "MS Finanzas y Configuración" {
+  enum NaturalezaMovimiento {
+    INGRESO
+    EGRESO
+  }
+
+  enum TipoMovimientoCaja {
+    SALDO_APERTURA
+    ABONO
+    PAGO_FACTURA
+    DEVOLUCION_SALDO
+    CORRECCION
+  }
+
+  enum TipoOperacionResultado {
+    VENTA
+    DEVOLUCION
+  }
+
+  enum EstadoPeriodo {
+    ABIERTO
+    EN_REVISION
+    CERRADO
+  }
+
+  enum TipoCierre {
+    MANUAL
+    AUTOMATICO
+  }
+
+  enum EstadoFacturaPago {
+    PENDIENTE_PAGO
+    PAGO_SOLICITADO
+    PAGO_RECHAZADO
+    PAGADA
+  }
+
+  enum EstadoAutorizacion {
+    PENDIENTE
+    APROBADA
+    RECHAZADA
+  }
+
+  enum EstadoConsultaContacto {
+    PENDIENTE
+    RESPONDIDA
+  }
+
+  class CuentaLibreria <<Entity>> {
+    - id : Long
+    - saldoApertura : Long
+    - saldoActual : Long
+    --
+    + registrarIngreso(monto : Long, tipo : TipoMovimientoCaja, refTipo : String, refId : String, concepto : String, usuarioId : Long) : MovimientoCaja
+    + registrarEgreso(monto : Long, tipo : TipoMovimientoCaja, refTipo : String, refId : String, concepto : String, usuarioId : Long) : MovimientoCaja
+  }
+
+  class MovimientoCaja <<Entity>> {
+    - id : Long
+    - fecha : LocalDateTime
+    - naturaleza : NaturalezaMovimiento
+    - tipo : TipoMovimientoCaja
+    - concepto : String
+    - monto : Long
+    - saldoResultante : Long
+    - referenciaTipo : String
+    - referenciaId : String
+    - idempotencyKey : String {unique}
+    - usuarioId : Long <<ref MS Auth>>
+  }
+
+  class RegistroResultado <<Entity>> {
+    - id : Long
+    - fecha : LocalDateTime
+    - tipo : TipoOperacionResultado
+    - montoVenta : Long
+    - costoVenta : Long
+    - alumnoId : Long <<ref MS Alumnos>>
+    - referenciaId : Long <<ref MS Ventas>>
+    - referenciaFolio : String
+    - idempotencyKey : String {unique}
+    --
+    + getMargenUtilidad() : Long
+  }
+
+  class ReporteResultados <<DTO>> {
+    - desde : LocalDate
+    - hasta : LocalDate
+    - totalAbonos : Long
+    - totalPagosFacturas : Long
+    - totalDevolucionesSaldo : Long
+    - saldoCajaResultante : Long
+    - totalVentasBrutas : Long
+    - totalDevolucionesVenta : Long
+    - ventasNetas : Long
+    - costoTotalVentas : Long
+    - utilidadBruta : Long
+    --
+    + calcularIndicadores() : void
+  }
+
+  class PeriodoContable <<Entity>> {
+    - id : Long
+    - anio : int
+    - mes : int
+    - estado : EstadoPeriodo
+    - fechaInicioRevision : LocalDateTime [0..1]
+    - fechaCierre : LocalDateTime [0..1]
+    - tipoCierre : TipoCierre [0..1]
+    - cerradoPorId : Long [0..1] <<ref MS Auth>>
+    --
+    + pasarARevision(inicioRevision : LocalDateTime) : void
+    + cerrarManualmente(adminId : Long) : void
+    + cerrarAutomaticamente() : void
+    + admiteMovimientos() : boolean
+    + isPlazoRevisionVencido(diasRevision : int) : boolean
+  }
+
+  class FacturaPorPagar <<Entity>> {
+    - id : Long
+    - facturaId : Long <<ref MS Compras>>
+    - ordenCompraFolio : String
+    - proveedorId : Long <<ref MS Compras>>
+    - nombreProveedor : String
+    - rutProveedor : String
+    - datosBancariosProveedor : String
+    - numeroFactura : String
+    - fechaFactura : LocalDate
+    - montoTotal : Long
+    - estado : EstadoFacturaPago
+    --
+    + solicitarPago(adminId : Long) : SolicitudPago
+    + registrarPagoEfectuado(pagoId : Long) : void
+  }
+
+  class ItemFacturaPorPagar <<Entity>> {
+    - id : Long
+    - productoId : Long <<ref MS Productos>>
+    - nombreProducto : String
+    - sku : String
+    - cantidadRecibida : int
+    - costoUnitarioTotal : Long
+    - subtotal : Long
+  }
+
+  class SolicitudPago <<Entity>> {
+    - id : Long
+    - monto : Long
+    - solicitanteId : Long <<ref MS Auth>>
+    - fechaSolicitud : LocalDateTime
+    - estado : EstadoAutorizacion
+    - autorizadorId : Long [0..1] <<ref MS Auth>>
+    - fechaResolucion : LocalDateTime [0..1]
+    - motivoRechazo : String [0..1]
+    --
+    + aprobar(autorizadorId : Long) : void
+    + rechazar(autorizadorId : Long, motivo : String) : void
+  }
+
+  class Pago <<Entity>> {
+    - id : Long
+    - facturaPorPagarId : Long <<ref FacturaPorPagar>>
+    - fechaPago : LocalDateTime
+    - monto : Long
+    - medioPago : String
+    - comprobanteReferencia : String
+    - registradoPorId : Long <<ref MS Auth>>
+  }
+
+  class ConfiguracionInstitucional <<Entity>> {
+    - id : Long
+    - nombreEstablecimiento : String
+    - nombreCentroPadres : String
+    - nombreLibreria : String
+    - rut : String
+    - direccion : String
+    - correoContacto : String
+    - logoUrl : String
+    - colorPrincipal : String
+    - colorAcento : String
+  }
+
+  class ParametroSistema <<Entity>> {
+    - clave : String {PK}
+    - valor : String
+    - descripcion : String
+    - fechaModificacion : LocalDateTime
+    - modificadoPorId : Long <<ref MS Auth>>
+  }
+
+  class RegistroAuditoria <<Entity>> {
+    - id : Long
+    - fechaHora : LocalDateTime
+    - microservicio : String
+    - usuarioId : Long <<ref MS Auth>>
+    - rol : String
+    - accion : String
+    - entidad : String
+    - entidadId : String
+    - valorAnterior : String [0..1]
+    - valorNuevo : String [0..1]
+    - motivo : String [0..1]
+  }
+
+  class ConsultaContacto <<Entity>> {
+    - id : Long
+    - primerNombre : String
+    - segundoNombre : String [0..1]
+    - primerApellido : String
+    - segundoApellido : String [0..1]
+    - correo : String
+    - mensaje : String
+    - fecha : LocalDateTime
+    - estado : EstadoConsultaContacto
+    - respondidaPorId : Long [0..1] <<ref MS Auth>>
+  }
+}
+
+CuentaLibreria "1" *-- "0..*" MovimientoCaja : cartola >
+PeriodoContable "1" -- "0..*" MovimientoCaja : agrupa >
+PeriodoContable "1" -- "0..*" RegistroResultado : agrupa >
+MovimientoCaja "0..1" --> "0..1" MovimientoCaja : corrige >
+RegistroResultado "0..1" --> "0..1" RegistroResultado : corrige >
+ReporteResultados ..> MovimientoCaja : lee (caja)
+ReporteResultados ..> RegistroResultado : lee (resultado)
+
+FacturaPorPagar "1" *-- "1..*" ItemFacturaPorPagar : proyección respaldo recepción >
+FacturaPorPagar "1" -- "0..*" SolicitudPago : autoriza >
+SolicitudPago "1" -- "0..1" Pago : genera >
+Pago "1" --> "1" MovimientoCaja : genera egreso automático >
+
+note right of SolicitudPago
+  Sin pagos parciales: monto = montoTotal de la factura.
+  Doble firma obligatoria:
+  1. ADMINISTRADOR solicita el pago.
+  2. AUTORIZADOR aprueba o rechaza.
+  3. Si es aprobada, ADMINISTRADOR registra Pago
+     y se genera EGRESO automático en MovimientoCaja.
+  4. Finanzas notifica a MS Compras (HU57) para
+     marcar la factura en estado PAGADA.
+  5. Si es rechazada, no hay egreso y pasa a PAGO_RECHAZADO.
+end note
+
+note bottom of RegistroResultado
+  HU58 — REGLA ESTRICTA DE NO DOBLE CONTABILIZACIÓN:
+  • Cartola de Caja (MovimientoCaja): SOLO dinero real.
+    - INGRESO: ABONO (recarga de saldo de apoderado).
+    - EGRESO: PAGO_FACTURA (pago total a proveedor) y
+      DEVOLUCION_SALDO (retiro físico/transferencia a apoderado).
+  • Resultados (RegistroResultado):
+    - VENTA / DEVOLUCION consumen o reintegran saldo prepagado.
+    - NO mueven caja bajo ninguna circunstancia.
+    - Margen: Venta Neta - Costo Venta (cant × CPP con IVA).
+  ReporteResultados es una vista calculada al vuelo para exportar a Excel.
+end note
+
+note bottom of PeriodoContable
+  Ciclo de Vida (HU61):
+  ABIERTO → EN_REVISION → CERRADO.
+  Cierre MANUAL (Administrador) o AUTOMATICO
+  al vencer DIAS_REVISION_CIERRE (por defecto 3 días).
+  Período cerrado es estrictamente inmutable; correcciones
+  se registran en el período abierto vigente referenciando
+  el movimiento original (HU62).
+end note
+
+note top of ConfiguracionInstitucional
+  HU63: Despliegue de colegio único (monotenant por instancia).
+  No existe colegioId en las tablas de negocio.
+  La identidad institucional y colores de UI se configuran aquí.
+end note
+
+note right of ParametroSistema
+  Parámetros maestros (HU64):
+  • UMBRAL_SALDO_BAJO = 3000
+  • DIAS_REVISION_CIERRE = 3
+  • IVA = 19
+  • EDAD_MIN_VENTA_DIRECTA = 12
+end note
+@enduml
