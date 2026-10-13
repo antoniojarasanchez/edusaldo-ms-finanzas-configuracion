@@ -174,7 +174,7 @@ ON DUPLICATE KEY UPDATE saldo_actual=VALUES(saldo_actual);
 
 INSERT INTO configuraciones_institucionales (id, nombre_establecimiento, nombre_centro_padres, nombre_libreria, rut, direccion, correo_contacto)
 VALUES (
-    1, 'Colegio Concepción San Pedro', 'Centro General de Padres y Apoderados', 'Librería Escolar Digital EduSaldo',
+    1, 'Colegio EduSaldo', 'Centro General de Padres y Apoderados', 'Librería Escolar Digital EduSaldo',
     '65.123.456-7', 'Av. Los Canelos 123, San Pedro de la Paz, Biobío', 'contacto@cpadrescolegio.cl'
 ) ON DUPLICATE KEY UPDATE nombre_establecimiento=VALUES(nombre_establecimiento);
 
