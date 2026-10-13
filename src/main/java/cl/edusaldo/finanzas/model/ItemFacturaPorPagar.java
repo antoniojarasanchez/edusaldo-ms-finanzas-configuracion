@@ -1,5 +1,6 @@
 package cl.edusaldo.finanzas.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -12,6 +13,7 @@ public class ItemFacturaPorPagar {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_por_pagar_id", nullable = false)
+    @JsonIgnore
     private FacturaPorPagar facturaPorPagar;
 
     @Column(name = "producto_id", nullable = false)

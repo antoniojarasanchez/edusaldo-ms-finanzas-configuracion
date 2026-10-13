@@ -1,5 +1,6 @@
 package cl.edusaldo.finanzas.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ public class SolicitudPago {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "factura_por_pagar_id", nullable = false)
+    @JsonIgnore
     private FacturaPorPagar facturaPorPagar;
 
     @Column(name = "monto", nullable = false)

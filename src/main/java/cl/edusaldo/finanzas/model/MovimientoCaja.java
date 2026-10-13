@@ -1,5 +1,6 @@
 package cl.edusaldo.finanzas.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ public class MovimientoCaja {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cuenta_libreria_id", nullable = false)
+    @JsonIgnore
     private CuentaLibreria cuentaLibreria;
 
     @Column(name = "fecha", nullable = false)
